@@ -1,8 +1,8 @@
 pipeline {
     agent { 
         docker { 
-            image 'node:16'  // Use Node 16 Docker image 
-            args '-u root -v /var/run/docker.sock:/var/run/docker.sock'  // Bind Docker socket for DinD 
+            image 'node:16'  
+            args '-u root -v /var/run/docker.sock:/var/run/docker.sock'  
         } 
     }
 
@@ -10,10 +10,9 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 script {
-                    // Set npm cache directory
                     sh 'npm config set cache /home/jenkins/.npm-cache --global'
-                    // Install dependencies
                     sh 'npm install --save'
+                    sh 'npm audit fix'  // Fix vulnerabilities
                 }
             }
         }
@@ -21,7 +20,7 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    sh 'npm run build'
+                    sh 'npm run build'  // Ensure build script exists in package.json
                 }
             }
         }
@@ -37,11 +36,8 @@ pipeline {
         stage('Snyk Security Scan') {
             steps {
                 script {
-                    // Install Snyk CLI globally
                     sh 'npm install -g snyk'
-                    // Authenticate Snyk (SNYK_API_TOKEN should be stored in Jenkins credentials)
                     sh 'snyk auth $SNYK_API_TOKEN'
-                    // Run Snyk to check for vulnerabilities
                     sh 'snyk test'
                 }
             }
@@ -51,11 +47,11 @@ pipeline {
     post {
         failure {
             script {
-                echo 'Build failed due to vulnerabilities'
+                echo 'Build failed due to vulnerabilities or errors'
             }
         }
         always {
-            cleanWs()  // Clean up workspace after build
+            cleanWs()  
         }
     }
 }
