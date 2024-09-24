@@ -31,18 +31,20 @@ pipeline {
         }
 
         stage('Snyk Security Scan') {
-    steps {
-        script {
-            try {
-                sh 'npm install -g snyk'
-                sh 'snyk auth'
-                sh 'snyk test'
-            } catch (Exception e) {
-                echo "Snyk scan failed. Skipping security scan."
+            steps {
+                script {
+                    try {
+                        sh 'npm install -g snyk'
+                        sh 'snyk auth'
+                        sh 'snyk test'
+                    } catch (Exception e) {
+                        echo "Snyk scan failed. Skipping security scan."
+                    }
+                }
             }
         }
     }
-}
+
     post {
         failure {
             echo 'Build failed due to vulnerabilities or errors'
