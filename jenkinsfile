@@ -9,37 +9,39 @@ pipeline {
     stages {
         stage('Install Dependencies') {
             steps {
-                sh 'npm config set cache /home/jenkins/.npm-cache --global'
-                sh 'npm install'
-                sh 'npm audit fix'
+                script {
+                    def logFile = "install_dependencies_${env.BUILD_NUMBER}.log"
+                    sh 'npm config set cache /home/jenkins/.npm-cache --global'
+                    sh "npm install > ${logFile} 2>&1"
+                    sh "npm audit fix >> ${logFile} 2>&1"
+                    archiveArtifacts artifacts: logFile, allowEmptyArchive: true
+                }
             }
         }
-
-        // Remove or comment out the Build stage
-        /*
-        stage('Build') {
-            steps {
-                sh 'npm run build'
-            }
-        }
-        */
 
         stage('Test') {
             steps {
-                sh 'npm test' // Include tests if you have them
+                script {
+                    def logFile = "test_${env.BUILD_NUMBER}.log"
+                    sh "npm test > ${logFile} 2>&1" // Captures test logs
+                    archiveArtifacts artifacts: logFile, allowEmptyArchive: true
+                }
             }
         }
 
         stage('Snyk Security Scan') {
             steps {
                 script {
+                    def logFile = "snyk_scan_${env.BUILD_NUMBER}.log"
                     try {
-                        sh 'npm install -g snyk'
-                        sh 'snyk auth'
-                        sh 'snyk test'
+                        sh "npm install -g snyk > ${logFile} 2>&1"
+                        sh "snyk auth >> ${logFile} 2>&1"
+                        sh "snyk test >> ${logFile} 2>&1"
                     } catch (Exception e) {
                         echo "Snyk scan failed. Skipping security scan."
+                        sh "echo 'Snyk scan failed due to error: ${e}' >> ${logFile}" // Log the error
                     }
+                    archiveArtifacts artifacts: logFile, allowEmptyArchive: true
                 }
             }
         }
@@ -48,9 +50,15 @@ pipeline {
     post {
         failure {
             echo 'Build failed due to vulnerabilities or errors'
+            emailext to: 'team@example.com',
+                     subject: "Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                     body: "Build failed during stage. Check the logs: ${env.BUILD_URL}/artifact"
+        }
+        success {
+            echo 'Build completed successfully.'
         }
         always {
-            cleanWs()
+            cleanWs() // Clean workspace after each build
         }
     }
 }
